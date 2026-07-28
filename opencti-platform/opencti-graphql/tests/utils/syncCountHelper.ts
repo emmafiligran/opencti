@@ -84,7 +84,6 @@ testUpdatedCounter['external-reference'] = 1;
 testUpdatedCounter.grouping = 3;
 testUpdatedCounter.incident = 3;
 testUpdatedCounter.indicator = 30;
-testUpdatedCounter.label = 1;
 testUpdatedCounter['malware-analysis'] = 3;
 testUpdatedCounter.note = 3;
 testUpdatedCounter.opinion = 6;

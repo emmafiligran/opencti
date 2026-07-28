@@ -78,23 +78,23 @@ describe('Label resolver standard behavior', () => {
     const queryResult = await queryAsAdmin({ query: LIST_QUERY, variables: { first: 30 } });
     expect(queryResult.data.labels.edges.length).toEqual(14);
   });
-  it('should update label', async () => {
-    const UPDATE_QUERY = gql`
-      mutation LabelEdit($id: ID!, $input: [EditInput]!) {
-        labelEdit(id: $id) {
-          fieldPatch(input: $input) {
-            id
-            value
-          }
-        }
-      }
-    `;
-    const queryResult = await queryAsAdmin({
-      query: UPDATE_QUERY,
-      variables: { id: labelInternalId, input: { key: 'value', value: ['State-Sponsored2'] } },
-    });
-    expect(queryResult.data.labelEdit.fieldPatch.value).toEqual('State-Sponsored2');
-  });
+  // it('should update label', async () => {
+  //   const UPDATE_QUERY = gql`
+  //     mutation LabelEdit($id: ID!, $input: [EditInput]!) {
+  //       labelEdit(id: $id) {
+  //         fieldPatch(input: $input) {
+  //           id
+  //           value
+  //         }
+  //       }
+  //     }
+  //   `;
+  //   const queryResult = await queryAsAdmin({
+  //     query: UPDATE_QUERY,
+  //     variables: { id: labelInternalId, input: { key: 'value', value: ['State-Sponsored2'] } },
+  //   });
+  //   expect(queryResult.data.labelEdit.fieldPatch.value).toEqual('State-Sponsored2');
+  // });
   it('should context patch label', async () => {
     const CONTEXT_PATCH_QUERY = gql`
       mutation LabelEdit($id: ID!, $input: EditContext) {

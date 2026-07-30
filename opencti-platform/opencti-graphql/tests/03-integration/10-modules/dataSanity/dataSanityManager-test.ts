@@ -159,6 +159,33 @@ describe('Data sanity manager handler test coverage', () => {
     expect(executedOp?.last_run_success).toBe(true);
   });
 
+  it('should keep running an operation with remaining batched work, without force_run', async () => {
+    const operationRun = vi.fn(async () => ({ impact: { total: 1, detail: { Malware: 1 } }, hasMore: true }));
+    vi.mocked(sanityManagerConfigMock.sanityOperationList).mockReturnValue([
+      {
+        identifier: 'mockOperationWithRemainingWork',
+        dryRun: async () => ({ impact: { total: 1, detail: { Malware: 1 } } }),
+        operationRun,
+        execution_type: 'run_once',
+        description: '',
+        display_name: '',
+        eligibleEntityTypes: [ENTITY_TYPE_MALWARE],
+        batch_size: 100,
+      },
+    ]);
+
+    // First run: operation reports hasMore=true, so it should not be considered "already executed"
+    await dataSanityHandler();
+    const firstRun = await findDataSanityByOperationName(testContext, ADMIN_USER, 'mockOperationWithRemainingWork');
+    expect(firstRun?.has_more_work).toBe(true);
+    expect(firstRun?.force_run).toBe(false);
+    expect(operationRun).toHaveBeenCalledTimes(1);
+
+    // Second run (no force_run requested): operation should still run because has_more_work is true
+    await dataSanityHandler();
+    expect(operationRun).toHaveBeenCalledTimes(2);
+  });
+
   it('should convert a DataSanity entity to STIX format', async () => {
     const runOnceOp = await findDataSanityByOperationName(testContext, ADMIN_USER, 'mockRunOnceOperation');
     expect(runOnceOp).toBeDefined();

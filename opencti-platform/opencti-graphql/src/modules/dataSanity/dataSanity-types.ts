@@ -14,6 +14,7 @@ export interface BasicStoreEntityDataSanity extends BasicStoreEntity {
   force_run: boolean;
   is_running: boolean;
   running_since: Date | null;
+  has_more_work: boolean; // true if the operation still has remaining data to process on a future cycle
 }
 
 export interface StoreEntityDataSanity extends StoreEntity {
@@ -26,6 +27,7 @@ export interface StoreEntityDataSanity extends StoreEntity {
   force_run: boolean;
   is_running: boolean;
   running_since: Date | null;
+  has_more_work: boolean;
 }
 
 export interface StixDataSanity extends StixObject {

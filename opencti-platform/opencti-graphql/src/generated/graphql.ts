@@ -6817,11 +6817,13 @@ export type DataSanityImpactedElement = {
 
 export type DataSanityOperation = {
   __typename?: 'DataSanityOperation';
+  batch_size: Scalars['Int']['output'];
   description: Scalars['String']['output'];
   display_name: Scalars['String']['output'];
   eligible_entity_types: Array<Scalars['String']['output']>;
   execution_type: Scalars['String']['output'];
   force_run: Scalars['Boolean']['output'];
+  has_more_work: Scalars['Boolean']['output'];
   identifier: Scalars['String']['output'];
   is_running: Scalars['Boolean']['output'];
   last_execution_time?: Maybe<Scalars['Int']['output']>;
@@ -43959,11 +43961,13 @@ export type DataSanityImpactedElementResolvers<ContextType = any, ParentType ext
 }>;
 
 export type DataSanityOperationResolvers<ContextType = any, ParentType extends ResolversParentTypes['DataSanityOperation'] = ResolversParentTypes['DataSanityOperation']> = ResolversObject<{
+  batch_size?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   description?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   display_name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   eligible_entity_types?: Resolver<Array<ResolversTypes['String']>, ParentType, ContextType>;
   execution_type?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   force_run?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  has_more_work?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   identifier?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   is_running?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   last_execution_time?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;

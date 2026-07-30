@@ -6,7 +6,7 @@ import type { BasicStoreEntityDataSanity } from './dataSanity-types';
 import { FilterMode, FilterOperator } from '../../generated/graphql';
 import { utcDate } from '../../utils/format';
 import conf, { logApp } from '../../config/conf';
-import { type SanityOperation, sanityOperationList, type SanityOperationRunOutput } from './dataSanity-operations';
+import { type SanityOperation, sanityOperationList, type SanityOperationRunOutput, DEFAULT_SANITY_OPERATION_BATCH_SIZE } from './dataSanity-operations';
 
 // If an operation stays marked as "running" longer than this, it is considered stale
 // (e.g. the node running it crashed/restarted before it could complete) and is allowed to run again.
@@ -33,7 +33,8 @@ export const findDataSanityByOperationName = async (context: AuthContext, user: 
 
 /**
  * Determine if a sanity operation should be skipped by the scheduler, and why.
- * Skip when currently running (and not stale), or when already executed and no force_run has been requested.
+ * Skip when currently running (and not stale), or when already fully executed
+ * (no remaining batched work) and no force_run has been requested.
  * @returns the skip reason, or undefined if the operation should run.
  */
 export const getOperationSkipReason = async (context: AuthContext, user: AuthUser, operationName: string): Promise<string | undefined> => {
@@ -51,6 +52,11 @@ export const getOperationSkipReason = async (context: AuthContext, user: AuthUse
       operation: operationName,
       running_since: entity.running_since,
     });
+  }
+  // An operation with remaining batched work must keep running on every cycle until fully completed,
+  // regardless of force_run.
+  if (entity.has_more_work) {
+    return undefined;
   }
   if (!entity.force_run) {
     return 'operation has already been executed';
@@ -79,6 +85,7 @@ export const markOperationAsRunning = async (context: AuthContext, user: AuthUse
       force_run: false,
       is_running: true,
       running_since: utcDate().toISOString(),
+      has_more_work: false,
     }, ENTITY_TYPE_DATA_SANITY_EXECUTION);
   }
 };
@@ -93,11 +100,12 @@ export const markOperationAsRunning = async (context: AuthContext, user: AuthUse
  * @param success - whether the operation succeeded
  * @param runMessage - human-readable message (error on failure, empty or brief on success)
  * @param output - the SanityOperationRunOutput to store (only on success)
+ * @param hasMore - true if the operation still has remaining batched work to process on a future cycle
  */
 export const markOperationAsExecuted = async (
   context: AuthContext, user: AuthUser, operationName: string,
   executionTimeMs: number, success: boolean, runMessage: string,
-  output?: SanityOperationRunOutput,
+  output?: SanityOperationRunOutput, hasMore = false,
 ): Promise<void> => {
   const existing = await findDataSanityByOperationName(context, user, operationName);
   const lastRunOutput = success && output ? JSON.stringify(output) : '';
@@ -111,6 +119,7 @@ export const markOperationAsExecuted = async (
       { key: 'force_run', value: [false] },
       { key: 'is_running', value: [false] },
       { key: 'running_since', value: [null] },
+      { key: 'has_more_work', value: [success && hasMore] },
     ]);
   } else {
     await createEntity(context, user, {
@@ -123,6 +132,7 @@ export const markOperationAsExecuted = async (
       force_run: false,
       is_running: false,
       running_since: null,
+      has_more_work: success && hasMore,
     }, ENTITY_TYPE_DATA_SANITY_EXECUTION);
   }
 };
@@ -190,8 +200,10 @@ export const listAllSanityOperations = async (context: AuthContext, user: AuthUs
       execution_type: operation.execution_type,
       description: operation.description,
       eligible_entity_types: operation.eligibleEntityTypes,
+      batch_size: operation.batch_size ?? DEFAULT_SANITY_OPERATION_BATCH_SIZE,
       is_running: execution?.is_running ?? false,
       running_since: execution?.running_since ?? null,
+      has_more_work: execution?.has_more_work ?? false,
       force_run: execution?.force_run ?? false,
       last_run_date: execution?.last_run_date ?? null,
       last_execution_time: execution?.last_execution_time ?? null,

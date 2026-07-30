@@ -3,7 +3,7 @@ import conf, { booleanConf, logApp } from '../config/conf';
 import { DATA_SANITY_MANAGER_USER, executionContext } from '../utils/access';
 import type { AuthContext, AuthUser } from '../types/user';
 import { findForceRunOperations, getOperationSkipReason, markOperationAsExecuted, markOperationAsRunning } from '../modules/dataSanity/dataSanity-domain';
-import { type SanityOperation, sanityOperationList } from '../modules/dataSanity/dataSanity-operations';
+import { type SanityOperation, sanityOperationList, DEFAULT_SANITY_OPERATION_BATCH_SIZE } from '../modules/dataSanity/dataSanity-operations';
 
 const DATA_SANITY_MANAGER_ID = 'DATA_SANITY_MANAGER';
 const DATA_SANITY_MANAGER_CONTEXT = 'data_sanity_manager';
@@ -26,10 +26,11 @@ export const dataSanityForceRunHandler = async (context: AuthContext) => {
     try {
       logApp.info('[DATA_SANITY_MANAGER] Executing force_run data sanity operation', { operation: operation.identifier });
       await markOperationAsRunning(context, DATA_SANITY_MANAGER_USER, operation.identifier);
-      const output = await operation.operationRun(context);
+      const batchSize = operation.batch_size ?? DEFAULT_SANITY_OPERATION_BATCH_SIZE;
+      const output = await operation.operationRun(context, batchSize);
       const executionTimeMs = Date.now() - startTime;
-      await markOperationAsExecuted(context, DATA_SANITY_MANAGER_USER, operation.identifier, executionTimeMs, true, '', output);
-      logApp.info('[DATA_SANITY_MANAGER] Force_run data sanity operation completed successfully', { operation: operation.identifier, executionTimeMs });
+      await markOperationAsExecuted(context, DATA_SANITY_MANAGER_USER, operation.identifier, executionTimeMs, true, '', output, output.hasMore);
+      logApp.info('[DATA_SANITY_MANAGER] Force_run data sanity operation completed successfully', { operation: operation.identifier, executionTimeMs, hasMore: output.hasMore });
     } catch (e: any) {
       const executionTimeMs = Date.now() - startTime;
       const errorMessage = e?.message || String(e);
@@ -55,10 +56,11 @@ export const dataSanityListHandler = async (context: AuthContext, user: AuthUser
       }
 
       await markOperationAsRunning(context, DATA_SANITY_MANAGER_USER, operation.identifier);
-      const output = await operation.operationRun(context);
+      const batchSize = operation.batch_size ?? DEFAULT_SANITY_OPERATION_BATCH_SIZE;
+      const output = await operation.operationRun(context, batchSize);
       const executionTimeMs = Date.now() - startTime;
-      await markOperationAsExecuted(context, DATA_SANITY_MANAGER_USER, operation.identifier, executionTimeMs, true, '', output);
-      logApp.info('[DATA_SANITY_MANAGER] Data sanity operation completed successfully', { operation: operation.identifier, executionTimeMs });
+      await markOperationAsExecuted(context, DATA_SANITY_MANAGER_USER, operation.identifier, executionTimeMs, true, '', output, output.hasMore);
+      logApp.info('[DATA_SANITY_MANAGER] Data sanity operation completed successfully', { operation: operation.identifier, executionTimeMs, hasMore: output.hasMore });
     } catch (e: any) {
       const executionTimeMs = Date.now() - startTime;
       const errorMessage = e?.message || String(e);

@@ -44,9 +44,12 @@ export const computeCollisionGroup = async (context: AuthContext, entityType: st
   return collisionGroups;
 };
 
-export const migrateEntityType = async (context: AuthContext, entityType: string) => {
-  const collisionGroups = await computeCollisionGroup(context, entityType);
-  logApp.info(`${message} > ${collisionGroups.length} ${entityType} collision group(s) to merge`);
+export const migrateEntityType = async (context: AuthContext, entityType: string, limit: number) => {
+  const allCollisionGroups = await computeCollisionGroup(context, entityType);
+  // Only process up to `limit` collision groups in this cycle, the remaining ones are kept for later.
+  const collisionGroups = allCollisionGroups.slice(0, limit);
+  const remaining = allCollisionGroups.length - collisionGroups.length;
+  logApp.info(`${message} > ${collisionGroups.length}/${allCollisionGroups.length} ${entityType} collision group(s) to merge in this batch`);
 
   // Batch-resolve the relation count for every entity participating in a collision group
   // (singletons don't need it). elBatchIdsWithRelCount issues a single ES request per batch
@@ -103,6 +106,7 @@ export const migrateEntityType = async (context: AuthContext, entityType: string
   return {
     merged: mergedEntities,
     collisions: collisionGroups.length,
+    remaining,
   };
 };
 
@@ -117,13 +121,28 @@ export const caseSensitiveDuplicatedIdDryRun = (entityTypes: string[]) => async 
   return { impact: { total, detail } };
 };
 
-export const caseSensitiveDuplicatedId = (entityTypes: string[]) => async (context: AuthContext): Promise<SanityOperationRunOutput> => {
+export const caseSensitiveDuplicatedId = (entityTypes: string[]) => async (context: AuthContext, batchSize: number): Promise<SanityOperationRunOutput> => {
   let total = 0;
+  let hasMore = false;
+  let remainingBudget = batchSize;
   const detail: Record<string, number> = {};
   for (const entityType of entityTypes) {
-    const stat = await migrateEntityType(context, entityType);
+    if (remainingBudget <= 0) {
+      // Budget exhausted: check if there is still work left for this entity type without processing it.
+      const collisionGroups = await computeCollisionGroup(context, entityType);
+      detail[entityType] = 0;
+      if (collisionGroups.length > 0) {
+        hasMore = true;
+      }
+      continue;
+    }
+    const stat = await migrateEntityType(context, entityType, remainingBudget);
     detail[entityType] = stat.merged;
     total += stat.merged;
+    remainingBudget -= stat.collisions;
+    if (stat.remaining > 0) {
+      hasMore = true;
+    }
   }
-  return { impact: { total, detail } };
+  return { impact: { total, detail }, hasMore };
 };

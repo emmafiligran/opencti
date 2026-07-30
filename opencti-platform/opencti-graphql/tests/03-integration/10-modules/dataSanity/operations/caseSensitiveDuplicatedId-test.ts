@@ -1,6 +1,11 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import { v4 as uuidv4 } from 'uuid';
-import { caseSensitiveDuplicatedIdDryRun, computeCollisionGroup, migrateEntityType } from '../../../../../src/modules/dataSanity/operations/caseSensitiveDuplicatedId';
+import {
+  caseSensitiveDuplicatedId,
+  caseSensitiveDuplicatedIdDryRun,
+  computeCollisionGroup,
+  migrateEntityType,
+} from '../../../../../src/modules/dataSanity/operations/caseSensitiveDuplicatedId';
 import { ADMIN_USER, testContext } from '../../../../utils/testQuery';
 import { elDelete, elIndex } from '../../../../../src/database/engine';
 import { INDEX_STIX_DOMAIN_OBJECTS } from '../../../../../src/database/utils';
@@ -98,6 +103,22 @@ describe('Operation caseSensitiveDuplicatedId coverage', () => {
     expect(groupWithDoc3).toBeUndefined();
   });
 
+  it('should keep remaining work for later when batch_size is exhausted', async () => {
+    // GIVEN a batch size of 0 (no budget at all for this cycle)
+    const output = await caseSensitiveDuplicatedId([ENTITY_TYPE_ATTACK_PATTERN, ENTITY_TYPE_COURSE_OF_ACTION])(testContext, 0);
+
+    // THEN nothing gets merged in this cycle...
+    expect(output.impact.total).toBe(0);
+    // ...but the operation reports that there is still work remaining for a later cycle
+    expect(output.hasMore).toBe(true);
+
+    // AND the colliding entities are still present (untouched)
+    const stillCollision1 = await internalLoadById(testContext, ADMIN_USER, attackPatternIdCollision1);
+    const stillCollision2 = await internalLoadById(testContext, ADMIN_USER, attackPatternIdCollision2);
+    expect(stillCollision1).toBeDefined();
+    expect(stillCollision2).toBeDefined();
+  });
+
   it('should merge colliding attack patterns via migrateEntityType', async () => {
     // Ensure colliding docs are present (they were inserted in the first test)
     const beforeMerge1 = await internalLoadById(testContext, ADMIN_USER, attackPatternIdCollision1);
@@ -106,7 +127,7 @@ describe('Operation caseSensitiveDuplicatedId coverage', () => {
     expect(beforeMerge2).toBeDefined();
 
     // Run the actual merge
-    const result = await migrateEntityType(testContext, ENTITY_TYPE_ATTACK_PATTERN);
+    const result = await migrateEntityType(testContext, ENTITY_TYPE_ATTACK_PATTERN, 500);
 
     // At least our collision group should have been merged
     expect(result.collisions).toBeGreaterThanOrEqual(1);
